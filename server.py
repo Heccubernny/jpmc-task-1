@@ -41,7 +41,7 @@ import dateutil.parser
 
 REALTIME = True
 SIM_LENGTH = timedelta(days=365 * 5)
-MARKET_OPEN = datetime.today().replace(hour=0, minute=30, second=0)
+MARKET_OPEN = datetime.now().replace(hour=0, minute=30, second=0)
 
 # Market parms
 #       min  / max  / std
@@ -120,8 +120,7 @@ def clear_book(buy=None, sell=None):
     """
     while buy and sell:
         order, size, _ = buy[0]
-        new_book = clear_order(order, size, sell)
-        if new_book:
+        if new_book := clear_order(order, size, sell):
             sell = new_book[1]
             buy = buy[1:]
         else:
@@ -204,16 +203,18 @@ def read_params(path):
 def get(req_handler, routes):
     """ Map a request to the appropriate route of a routes instance. """
     for name, handler in routes.__class__.__dict__.items():
-        if hasattr(handler, "__route__"):
-            if None != re.search(handler.__route__, req_handler.path):
-                req_handler.send_response(200)
-                req_handler.send_header('Content-Type', 'application/json')
-                req_handler.send_header('Access-Control-Allow-Origin', '*')
-                req_handler.end_headers()
-                params = read_params(req_handler.path)
-                data = json.dumps(handler(routes, params)) + '\n'
-                req_handler.wfile.write(bytes(data, encoding='utf-8'))
-                return
+        if (
+            hasattr(handler, "__route__")
+            and re.search(handler.__route__, req_handler.path) != None
+        ):
+            req_handler.send_response(200)
+            req_handler.send_header('Content-Type', 'application/json')
+            req_handler.send_header('Access-Control-Allow-Origin', '*')
+            req_handler.end_headers()
+            params = read_params(req_handler.path)
+            data = json.dumps(handler(routes, params)) + '\n'
+            req_handler.wfile.write(bytes(data, encoding='utf-8'))
+            return
 
 
 def run(routes, host='0.0.0.0', port=8080):
@@ -255,8 +256,8 @@ class App(object):
     """ The trading game server application. """
 
     def __init__(self):
-        self._book_1 = dict()
-        self._book_2 = dict()
+        self._book_1 = {}
+        self._book_2 = {}
         self._data_1 = order_book(read_csv(), self._book_1, 'ABC')
         self._data_2 = order_book(read_csv(), self._book_2, 'DEF')
         self._rt_start = datetime.now()
@@ -300,7 +301,7 @@ class App(object):
             t1, bids1, asks1 = next(self._current_book_1)
             t2, bids2, asks2 = next(self._current_book_2)
         t = t1 if t1 > t2 else t2
-        print('Query received @ t%s' % t)
+        print(f'Query received @ t{t}')
         return [{
             'id': x and x.get('id', None),
             'stock': 'ABC',
